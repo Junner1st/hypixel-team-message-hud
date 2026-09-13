@@ -4,12 +4,12 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ServerInfo;
-import net.minecraft.scoreboard.Team;
-import net.minecraft.text.Style;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.world.scores.PlayerTeam;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,7 +29,7 @@ public final class HypixelTeamMessageHudClient implements ClientModInitializer {
 	private static String currentServerAddress = "";
 	private static boolean connectedToHypixel;
 	private static boolean bedWarsStarted;
-	private static Text actionBarMessage;
+	private static Component actionBarMessage;
 	private static int actionBarTicksRemaining;
 	private static int actionBarRefreshTicks;
 
@@ -44,21 +44,21 @@ public final class HypixelTeamMessageHudClient implements ClientModInitializer {
 	}
 
 	public static boolean shouldMirrorMessage(String plainText) {
-		MinecraftClient client = MinecraftClient.getInstance();
+		Minecraft client = Minecraft.getInstance();
 		updateConnectionState(client);
 		if (!ModConfig.isEnabled() || !connectedToHypixel || !bedWarsStarted || plainText == null || plainText.isBlank()) {
 			return false;
 		}
-		if (client.player == null || client.world == null) {
+		if (client.player == null || client.level == null) {
 			return false;
 		}
 
-		Team team = client.player.getScoreboardTeam();
+		PlayerTeam team = client.player.getTeam();
 		if (team == null) {
 			return false;
 		}
 
-		Set<String> teamMembers = team.getPlayerList().stream()
+		Set<String> teamMembers = team.getPlayers().stream()
 				.filter(USERNAME.asMatchPredicate())
 				.map(name -> name.toLowerCase(Locale.ROOT))
 				.collect(Collectors.toUnmodifiableSet());
@@ -69,14 +69,14 @@ public final class HypixelTeamMessageHudClient implements ClientModInitializer {
 		return teamMembers.stream().anyMatch(messageNames::contains);
 	}
 
-	public static void showActionBar(Text message) {
-		actionBarMessage = message.copy().fillStyle(Style.EMPTY.withColor(Formatting.GRAY));
+	public static void showActionBar(Component message) {
+		actionBarMessage = message.copy().withStyle(Style.EMPTY.withColor(ChatFormatting.GRAY));
 		actionBarTicksRemaining = ModConfig.getActionBarDurationTicks();
 		actionBarRefreshTicks = 0;
-		sendActionBar(MinecraftClient.getInstance());
+		sendActionBar(Minecraft.getInstance());
 	}
 
-	private static void onEndTick(MinecraftClient client) {
+	private static void onEndTick(Minecraft client) {
 		if (actionBarMessage == null || actionBarTicksRemaining <= 0) {
 			return;
 		}
@@ -88,8 +88,8 @@ public final class HypixelTeamMessageHudClient implements ClientModInitializer {
 		}
 	}
 
-	private static void onGameMessage(Text message) {
-		updateConnectionState(MinecraftClient.getInstance());
+	private static void onGameMessage(Component message) {
+		updateConnectionState(Minecraft.getInstance());
 		if (!connectedToHypixel) {
 			return;
 		}
@@ -106,7 +106,7 @@ public final class HypixelTeamMessageHudClient implements ClientModInitializer {
 		}
 	}
 
-	private static void onJoin(MinecraftClient client) {
+	private static void onJoin(Minecraft client) {
 		updateConnectionState(client);
 		resetGame();
 	}
@@ -141,15 +141,15 @@ public final class HypixelTeamMessageHudClient implements ClientModInitializer {
 		actionBarRefreshTicks = 0;
 	}
 
-	private static void sendActionBar(MinecraftClient client) {
+	private static void sendActionBar(Minecraft client) {
 		if (client.player != null && actionBarMessage != null) {
-			client.player.sendMessage(actionBarMessage, true);
+			client.player.sendOverlayMessage(actionBarMessage);
 		}
 	}
 
-	private static void updateConnectionState(MinecraftClient client) {
-		ServerInfo serverInfo = client.getCurrentServerEntry();
-		String address = serverInfo == null ? "" : serverInfo.address;
+	private static void updateConnectionState(Minecraft client) {
+		ServerData serverInfo = client.getCurrentServer();
+		String address = serverInfo == null ? "" : serverInfo.ip;
 		boolean hypixel = isHypixelAddress(address);
 
 		if (!address.equals(currentServerAddress) || hypixel != connectedToHypixel) {

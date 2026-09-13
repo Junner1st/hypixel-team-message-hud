@@ -6,8 +6,8 @@ import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
 import me.shedaniel.clothconfig2.gui.ClothConfigScreen;
 import me.shedaniel.clothconfig2.gui.entries.EmptyEntry;
 import me.shedaniel.clothconfig2.gui.widget.SearchFieldEntry;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 import java.util.List;
 
@@ -18,31 +18,31 @@ public final class ConfigScreen {
 	public static Screen create(Screen parent) {
 		ConfigBuilder builder = ConfigBuilder.create()
 				.setParentScreen(parent)
-				.setTitle(Text.literal("Hypixel Team Message HUD"))
+				.setTitle(Component.literal("Hypixel Team Message HUD"))
 				.setSavingRunnable(ModConfig::save);
 		builder.setGlobalized(false);
 		builder.setAfterInitConsumer(ConfigScreen::removeSearchField);
 
 		ConfigEntryBuilder entries = builder.entryBuilder();
-		ConfigCategory general = builder.getOrCreateCategory(Text.literal("General"));
+		ConfigCategory general = builder.getOrCreateCategory(Component.literal("General"));
 
 		general.addEntry(entries.startBooleanToggle(
-						Text.literal("Enabled"),
+						Component.literal("Enabled"),
 						ModConfig.isEnabled()
 				)
 				.setDefaultValue(ModConfig.DEFAULT_ENABLED)
-				.setTooltip(Text.literal("Mirror matching Hypixel Bed Wars messages to the action bar."))
+				.setTooltip(Component.literal("Mirror matching Hypixel Bed Wars messages to the action bar."))
 				.setSaveConsumer(ModConfig::setEnabled)
 				.build());
 
 		general.addEntry(entries.startIntField(
-						Text.literal("Action bar duration"),
+						Component.literal("Action bar duration"),
 						ModConfig.getActionBarDurationTicks()
 				)
 				.setDefaultValue(ModConfig.DEFAULT_ACTION_BAR_DURATION_TICKS)
 				.setMin(ModConfig.MIN_ACTION_BAR_DURATION_TICKS)
 				.setMax(ModConfig.MAX_ACTION_BAR_DURATION_TICKS)
-				.setTooltip(Text.literal("How long mirrored messages stay visible, in ticks."))
+				.setTooltip(Component.literal("How long mirrored messages stay visible, in ticks."))
 				.setSaveConsumer(ModConfig::setActionBarDurationTicks)
 				.build());
 
