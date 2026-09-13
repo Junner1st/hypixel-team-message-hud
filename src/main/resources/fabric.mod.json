@@ -1,0 +1,38 @@
+{
+	"schemaVersion": 1,
+	"id": "hypixel-team-message-hud",
+	"version": "${version}",
+	"name": "Hypixel Team Message HUD",
+	"description": "Shows Hypixel Bed Wars team chat messages in the action bar.",
+	"authors": [
+		"Junner"
+	],
+	"contact": {
+		"homepage": "https://junner.org/",
+		"sources": "https://github.com/Junner1st/hypixel-team-message-hud"
+	},
+	"license": "MIT",
+	"icon": "assets/icon/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"org.junner.hypixelteammessagehud.HypixelTeamMessageHudClient"
+		],
+		"modmenu": [
+			"org.junner.hypixelteammessagehud.ModMenuIntegration"
+		]
+	},
+	"mixins": [
+		"hypixel-team-message-hud.client.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.19.2",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*",
+		"cloth-config": ">=21.11.153"
+	},
+	"suggests": {
+		"modmenu": ">=17.0.0"
+	}
+}
