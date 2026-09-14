@@ -3,9 +3,7 @@
 	"minVersion": "0.8.7",
 	"package": "org.junner.hypixelteammessagehud.mixin",
 	"compatibilityLevel": "JAVA_21",
-	"client": [
-		"ChatHudMixin"
-	],
+	"client": [],
 	"injectors": {
 		"defaultRequire": 1
 	}
