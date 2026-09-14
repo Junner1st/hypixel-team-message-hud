@@ -13,6 +13,7 @@ import net.minecraft.world.scores.PlayerTeam;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -32,6 +33,10 @@ public final class HypixelTeamMessageHudClient implements ClientModInitializer {
 	private static Component actionBarMessage;
 	private static int actionBarTicksRemaining;
 	private static int actionBarRefreshTicks;
+	private static String lastDisplayPlain = "";
+	private static int lastDisplayTick = -1;
+	private static String lastDetectedMembers = "";
+	private static boolean sendingActionBar;
 
 	@Override
 	public void onInitializeClient() {
@@ -58,11 +63,8 @@ public final class HypixelTeamMessageHudClient implements ClientModInitializer {
 			return false;
 		}
 
-		Set<String> teamMembers = team.getPlayers().stream()
-				.filter(USERNAME.asMatchPredicate())
-				.map(name -> name.toLowerCase(Locale.ROOT))
-				.collect(Collectors.toUnmodifiableSet());
-
+		Set<String> teamMembers = getTeamMemberNames(team);
+		logDetectedMembersWhenChanged(teamMembers);
 		Set<String> messageNames = USERNAME.matcher(plainText).results()
 				.map(match -> match.group().toLowerCase(Locale.ROOT))
 				.collect(Collectors.toUnmodifiableSet());
@@ -70,10 +72,22 @@ public final class HypixelTeamMessageHudClient implements ClientModInitializer {
 	}
 
 	public static void showActionBar(Component message) {
+		Minecraft client = Minecraft.getInstance();
+		String plain = message.getString();
+		if (plain.equals(lastDisplayPlain) && actionBarTicksRemaining > 0) {
+			return;
+		}
+		if (client.player != null && client.player.tickCount == lastDisplayTick && plain.equals(lastDisplayPlain)) {
+			return;
+		}
+
 		actionBarMessage = message.copy().withStyle(Style.EMPTY.withColor(ChatFormatting.GRAY));
 		actionBarTicksRemaining = ModConfig.getActionBarDurationTicks();
 		actionBarRefreshTicks = 0;
-		sendActionBar(Minecraft.getInstance());
+		lastDisplayPlain = plain;
+		lastDisplayTick = client.player == null ? -1 : client.player.tickCount;
+		log("display: {}", plain);
+		sendActionBar(client);
 	}
 
 	private static void onEndTick(Minecraft client) {
@@ -89,6 +103,10 @@ public final class HypixelTeamMessageHudClient implements ClientModInitializer {
 	}
 
 	private static void onGameMessage(Component message) {
+		if (sendingActionBar) {
+			return;
+		}
+
 		updateConnectionState(Minecraft.getInstance());
 		if (!connectedToHypixel) {
 			return;
@@ -103,6 +121,10 @@ public final class HypixelTeamMessageHudClient implements ClientModInitializer {
 				|| plain.equals("We don't have enough players! Start cancelled.")
 				|| plain.equals("You have been eliminated!")) {
 			resetGame();
+		}
+
+		if (shouldMirrorMessage(plain)) {
+			showActionBar(message);
 		}
 	}
 
@@ -139,11 +161,18 @@ public final class HypixelTeamMessageHudClient implements ClientModInitializer {
 		actionBarMessage = null;
 		actionBarTicksRemaining = 0;
 		actionBarRefreshTicks = 0;
+		lastDisplayPlain = "";
+		lastDisplayTick = -1;
 	}
 
 	private static void sendActionBar(Minecraft client) {
 		if (client.player != null && actionBarMessage != null) {
-			client.player.sendOverlayMessage(actionBarMessage);
+			sendingActionBar = true;
+			try {
+				client.player.sendOverlayMessage(actionBarMessage);
+			} finally {
+				sendingActionBar = false;
+			}
 		}
 	}
 
@@ -182,5 +211,35 @@ public final class HypixelTeamMessageHudClient implements ClientModInitializer {
 
 	private static void log(String message, Object... args) {
 		LOGGER.info(LOG_PREFIX + message, args);
+	}
+
+	private static Set<String> getTeamMemberNames(PlayerTeam ownTeam) {
+		Set<String> teamMembers = new HashSet<>();
+		String ownPrefix = ownTeam.getPlayerPrefix().getString();
+
+		for (PlayerTeam team : ownTeam.getScoreboard().getPlayerTeams()) {
+			boolean sameColor = team.getColor() == ownTeam.getColor();
+			boolean samePrefix = team.getPlayerPrefix().getString().equals(ownPrefix);
+			if (!sameColor || !samePrefix) {
+				continue;
+			}
+
+			team.getPlayers().stream()
+					.filter(USERNAME.asMatchPredicate())
+					.map(name -> name.toLowerCase(Locale.ROOT))
+					.forEach(teamMembers::add);
+		}
+
+		return teamMembers;
+	}
+
+	private static void logDetectedMembersWhenChanged(Set<String> teamMembers) {
+		String detectedMembers = teamMembers.stream()
+				.sorted()
+				.collect(Collectors.joining(", "));
+		if (!detectedMembers.equals(lastDetectedMembers)) {
+			lastDetectedMembers = detectedMembers;
+			log("detect member: {}", detectedMembers.isBlank() ? "none" : detectedMembers);
+		}
 	}
 }
